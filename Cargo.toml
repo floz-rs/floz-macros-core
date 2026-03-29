@@ -1,0 +1,15 @@
+[package]
+name = "floz-macros-core"
+version = "0.1.0"
+edition = "2021"
+description = "Core logic for floz-macros"
+authors = ["Floz Team"]
+license = "MIT"
+
+[lib]
+proc-macro = false
+
+[dependencies]
+syn = { version = "2", features = ["full", "extra-traits"] }
+quote = "1"
+proc-macro2 = "1"
