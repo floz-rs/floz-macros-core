@@ -395,4 +395,20 @@ pub fn expand_route(attr: TokenStream, item: TokenStream) -> TokenStream {
     expanded
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// #[floz::main] Macro
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+pub fn expand_main(item: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    let input = match syn::parse2::<syn::ItemFn>(item) {
+        Ok(it) => it,
+        Err(e) => return e.to_compile_error(),
+    };
+
+    // We delegate to tokio::main which is fully natively supported by tokio-backed ntex
+    quote::quote! {
+        #[::tokio::main]
+        #input
+    }
+}
+
 
