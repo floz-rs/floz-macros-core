@@ -80,7 +80,7 @@ pub fn expand_task(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let fn_name = &handler_fn.sig.ident;
     let fn_vis = &handler_fn.vis;
-    let fn_sig = &handler_fn.sig;
+    let _fn_sig = &handler_fn.sig;
     let fn_block = &handler_fn.block;
     
     // Extract arg names and types for the dispatch method
