@@ -66,8 +66,14 @@ fn generate_struct(model: &ModelDef) -> TokenStream {
                 quote! {}
             };
 
+            let schema_attr = match &field.type_info {
+                TypeInfo::Json | TypeInfo::Jsonb => quote! { #[cfg_attr(feature = "openapi", schema(value_type = Object))] },
+                _ => quote! {},
+            };
+
             quote! {
                 #rename_attr
+                #schema_attr
                 pub #rust_name: #rust_type,
             }
         })
@@ -89,7 +95,8 @@ fn generate_struct(model: &ModelDef) -> TokenStream {
         .collect();
 
     quote! {
-        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow, utoipa::ToSchema)]
+        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+        #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
         pub struct #name {
             #(#fields)*
 
@@ -466,7 +473,7 @@ fn generate_preload_method(model: &ModelDef, rel: &RelDef) -> TokenStream {
 // DDL Method Generation
 // ═══════════════════════════════════════════════════════════════
 
-fn build_create_table_sql(model: &ModelDef) -> String {
+fn build_create_table_sql_pg(model: &ModelDef) -> String {
     let mut sql = format!("CREATE TABLE IF NOT EXISTS {} (\n", model.table_name);
     let mut columns = Vec::new();
 
@@ -545,30 +552,141 @@ fn build_create_table_sql(model: &ModelDef) -> String {
     sql
 }
 
+fn build_create_table_sql_sqlite(model: &ModelDef) -> String {
+    let mut sql = format!("CREATE TABLE IF NOT EXISTS {} (\n", model.table_name);
+    let mut columns = Vec::new();
+
+    for field in &model.db_columns {
+        let mut col_def = format!("    {}", field.column_name);
+
+        let sqlite_type = match &field.type_info {
+            // Auto-increment in SQLite: INTEGER PRIMARY KEY implies ROWID alias
+            TypeInfo::Integer if field.is_auto_increment() => "INTEGER".to_string(),
+            TypeInfo::BigInt if field.is_auto_increment() => "INTEGER".to_string(),
+            TypeInfo::Short if field.is_auto_increment() => "INTEGER".to_string(),
+            // Numeric types
+            TypeInfo::Integer | TypeInfo::Short | TypeInfo::BigInt => "INTEGER".to_string(),
+            TypeInfo::Real | TypeInfo::Double => "REAL".to_string(),
+            TypeInfo::Decimal { .. } => "REAL".to_string(),
+            TypeInfo::Bool => "INTEGER".to_string(),
+            // Text types
+            TypeInfo::Varchar { .. } | TypeInfo::Text | TypeInfo::Ltree => "TEXT".to_string(),
+            // Date/time stored as TEXT (ISO 8601) in SQLite
+            TypeInfo::Date | TypeInfo::Time | TypeInfo::DateTime => "TEXT".to_string(),
+            // UUID stored as TEXT in SQLite
+            TypeInfo::Uuid => "TEXT".to_string(),
+            // Binary
+            TypeInfo::Binary => "BLOB".to_string(),
+            // JSON stored as TEXT in SQLite
+            TypeInfo::Json | TypeInfo::Jsonb => "TEXT".to_string(),
+            // Enums and custom types → TEXT
+            TypeInfo::Enum { .. } | TypeInfo::Col { .. } => "TEXT".to_string(),
+            // Arrays stored as JSON TEXT in SQLite
+            TypeInfo::TextArray | TypeInfo::VarcharArray | TypeInfo::IntArray
+            | TypeInfo::ShortArray | TypeInfo::BigIntArray | TypeInfo::UuidArray
+            | TypeInfo::BoolArray | TypeInfo::RealArray | TypeInfo::DoubleArray => "TEXT".to_string(),
+        };
+
+        col_def.push_str(&format!(" {}", sqlite_type));
+
+        // For auto-increment integer PKs, emit PRIMARY KEY AUTOINCREMENT
+        if field.is_auto_increment() {
+            col_def.push_str(" PRIMARY KEY AUTOINCREMENT");
+        } else {
+            if !field.is_nullable() {
+                col_def.push_str(" NOT NULL");
+            }
+
+            for modifier in &field.modifiers {
+                match modifier {
+                    Modifier::Primary => col_def.push_str(" PRIMARY KEY"),
+                    Modifier::Unique => col_def.push_str(" UNIQUE"),
+                    Modifier::Default(val) => {
+                        col_def.push_str(&format!(" DEFAULT {}", val))
+                    },
+                    Modifier::Now => col_def.push_str(" DEFAULT CURRENT_TIMESTAMP"),
+                    _ => {}
+                }
+            }
+        }
+
+        columns.push(col_def);
+    }
+
+    for constraint in &model.constraints {
+        match constraint {
+            TableConstraint::PrimaryKey(cols) => {
+                columns.push(format!("    PRIMARY KEY ({})", cols.join(", ")));
+            }
+            TableConstraint::Unique(cols) => {
+                columns.push(format!("    UNIQUE ({})", cols.join(", ")));
+            }
+            _ => {}
+        }
+    }
+
+    sql.push_str(&columns.join(",\n"));
+    sql.push_str("\n)");
+    
+    sql
+}
+
 fn generate_ddl(model: &ModelDef) -> TokenStream {
     let name = &model.name;
-    let create_sql = build_create_table_sql(model);
     let table = &model.table_name;
-    let drop_sql = format!("DROP TABLE IF EXISTS {} CASCADE", table);
-    let empty_sql = format!("TRUNCATE TABLE {} CASCADE", table);
+
+    // PostgreSQL DDL
+    let pg_create_sql = build_create_table_sql_pg(model);
+    let pg_drop_sql = format!("DROP TABLE IF EXISTS {} CASCADE", table);
+    let pg_empty_sql = format!("TRUNCATE TABLE {} CASCADE", table);
+
+    // SQLite DDL
+    let sqlite_create_sql = build_create_table_sql_sqlite(model);
+    let sqlite_drop_sql = format!("DROP TABLE IF EXISTS {}", table);
+    let sqlite_empty_sql = format!("DELETE FROM {}", table);
 
     quote! {
         impl #name {
-            /// Create the table in the database if it does not exist.
+            /// Create the table using PostgreSQL DDL.
+            #[cfg(feature = "postgres")]
+            pub async fn create_table_pg(db: &impl floz::Executor) -> Result<(), floz::FlozError> {
+                db.execute_raw(#pg_create_sql, vec![]).await?;
+                Ok(())
+            }
+
+            /// Create the table using SQLite DDL.
+            #[cfg(feature = "sqlite")]
+            pub async fn create_table_sqlite(db: &impl floz::Executor) -> Result<(), floz::FlozError> {
+                db.execute_raw(#sqlite_create_sql, vec![]).await?;
+                Ok(())
+            }
+
+            /// Create the table — auto-selects the correct DDL dialect.
+            /// When both features are enabled, defaults to PostgreSQL.
             pub async fn create_table(db: &impl floz::Executor) -> Result<(), floz::FlozError> {
-                db.execute_raw(#create_sql, vec![]).await?;
-                Ok(())
+                #[cfg(feature = "postgres")]
+                { return Self::create_table_pg(db).await; }
+                #[cfg(all(feature = "sqlite", not(feature = "postgres")))]
+                { return Self::create_table_sqlite(db).await; }
+                #[cfg(not(any(feature = "postgres", feature = "sqlite")))]
+                { compile_error!("Enable the `postgres` or `sqlite` feature for DDL support"); }
             }
 
-            /// Drop the table from the database if it exists (cascade).
+            /// Drop the table from the database if it exists.
             pub async fn drop_table(db: &impl floz::Executor) -> Result<(), floz::FlozError> {
-                db.execute_raw(#drop_sql, vec![]).await?;
+                #[cfg(feature = "postgres")]
+                { db.execute_raw(#pg_drop_sql, vec![]).await?; }
+                #[cfg(all(feature = "sqlite", not(feature = "postgres")))]
+                { db.execute_raw(#sqlite_drop_sql, vec![]).await?; }
                 Ok(())
             }
 
-            /// Truncate the table, deleting all rows (cascade).
+            /// Truncate/empty the table, deleting all rows.
             pub async fn empty(db: &impl floz::Executor) -> Result<(), floz::FlozError> {
-                db.execute_raw(#empty_sql, vec![]).await?;
+                #[cfg(feature = "postgres")]
+                { db.execute_raw(#pg_empty_sql, vec![]).await?; }
+                #[cfg(all(feature = "sqlite", not(feature = "postgres")))]
+                { db.execute_raw(#sqlite_empty_sql, vec![]).await?; }
                 Ok(())
             }
         }

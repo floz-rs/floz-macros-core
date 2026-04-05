@@ -1,15 +1,16 @@
 [package]
 name = "floz-macros-core"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Core logic for floz-macros"
 authors = ["Floz Team"]
 license = "MIT"
+repository = "https://github.com/floz-rs/floz-macros-core"
 
 [lib]
 proc-macro = false
 
 [dependencies]
-syn = { version = "2", features = ["full", "extra-traits"] }
-quote = "1"
-proc-macro2 = "1"
+syn = { workspace = true }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
