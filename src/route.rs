@@ -404,9 +404,9 @@ pub fn expand_main(item: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
         Err(e) => return e.to_compile_error(),
     };
 
-    // We delegate to tokio::main which is fully natively supported by tokio-backed ntex
+    // We delegate to ntex::main which sets up the ntex System registry
     quote::quote! {
-        #[::tokio::main]
+        #[::floz::ntex::main]
         #input
     }
 }
