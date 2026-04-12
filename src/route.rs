@@ -50,6 +50,9 @@ pub struct RouteAttr {
     pub auth: Option<String>,
     pub rate: Option<String>,
     pub wrap: Vec<syn::Expr>,
+    pub permissions: Vec<String>,
+    pub cache_ttl: Option<u64>,
+    pub cache_watch: Vec<String>,
 }
 
 #[derive(Clone, Copy)]
@@ -120,85 +123,137 @@ impl Parse for RouteAttr {
         let mut resps: Vec<ResponseSpec> = Vec::new();
         let mut auth: Option<String> = None;
         let mut rate: Option<String> = None;
+        let mut permissions: Vec<String> = Vec::new();
         let mut wrap: Vec<syn::Expr> = Vec::new();
+        let mut cache_ttl: Option<u64> = None;
+        let mut cache_watch: Vec<String> = Vec::new();
 
         while !input.is_empty() {
             let key: Ident = input.parse()?;
-            input.parse::<Token![:]>()?;
+            let key_str = key.to_string();
 
-            match key.to_string().as_str() {
-                "get" => {
-                    method = Some(HttpMethod::Get);
-                    let lit: LitStr = input.parse()?;
-                    path = Some(lit.value());
-                }
-                "post" => {
-                    method = Some(HttpMethod::Post);
-                    let lit: LitStr = input.parse()?;
-                    path = Some(lit.value());
-                }
-                "put" => {
-                    method = Some(HttpMethod::Put);
-                    let lit: LitStr = input.parse()?;
-                    path = Some(lit.value());
-                }
-                "patch" => {
-                    method = Some(HttpMethod::Patch);
-                    let lit: LitStr = input.parse()?;
-                    path = Some(lit.value());
-                }
-                "delete" => {
-                    method = Some(HttpMethod::Delete);
-                    let lit: LitStr = input.parse()?;
-                    path = Some(lit.value());
-                }
-                "tag" => {
-                    let lit: LitStr = input.parse()?;
-                    tag = Some(lit.value());
-                }
-                "desc" => {
-                    let lit: LitStr = input.parse()?;
-                    desc = Some(lit.value());
-                }
-                "resps" => {
-                    let content;
-                    bracketed!(content in input);
-                    while !content.is_empty() {
-                        let resp: ResponseSpec = content.parse()?;
-                        resps.push(resp);
-                        if content.peek(Token![,]) {
-                            content.parse::<Token![,]>()?;
+            let is_bare_auth = key_str == "auth" && !input.peek(Token![:]);
+
+            // `cache(...)` uses parenthesized syntax — no colon. `auth` can lack a colon if it means "required".
+            if key_str != "cache" && !is_bare_auth {
+                input.parse::<Token![:]>()?;
+            }
+
+            if is_bare_auth {
+                auth = Some("required".to_string());
+            } else {
+                match key_str.as_str() {
+                    "get" => {
+                        method = Some(HttpMethod::Get);
+                        let lit: LitStr = input.parse()?;
+                        path = Some(lit.value());
+                    }
+                    "post" => {
+                        method = Some(HttpMethod::Post);
+                        let lit: LitStr = input.parse()?;
+                        path = Some(lit.value());
+                    }
+                    "put" => {
+                        method = Some(HttpMethod::Put);
+                        let lit: LitStr = input.parse()?;
+                        path = Some(lit.value());
+                    }
+                    "patch" => {
+                        method = Some(HttpMethod::Patch);
+                        let lit: LitStr = input.parse()?;
+                        path = Some(lit.value());
+                    }
+                    "delete" => {
+                        method = Some(HttpMethod::Delete);
+                        let lit: LitStr = input.parse()?;
+                        path = Some(lit.value());
+                    }
+                    "tag" => {
+                        let lit: LitStr = input.parse()?;
+                        tag = Some(lit.value());
+                    }
+                    "desc" => {
+                        let lit: LitStr = input.parse()?;
+                        desc = Some(lit.value());
+                    }
+                    "resps" => {
+                        let content;
+                        bracketed!(content in input);
+                        while !content.is_empty() {
+                            let resp: ResponseSpec = content.parse()?;
+                            resps.push(resp);
+                            if content.peek(Token![,]) {
+                                content.parse::<Token![,]>()?;
+                            }
                         }
                     }
-                }
-                "auth" => {
-                    // auth: jwt | api_key | none (parsed as ident, not string)
-                    let ident: Ident = input.parse()?;
-                    auth = Some(ident.to_string());
-                }
-                "rate" => {
-                    let lit: LitStr = input.parse()?;
-                    rate = Some(lit.value());
-                }
-                "wrap" => {
-                    let content;
-                    syn::bracketed!(content in input);
-                    while !content.is_empty() {
-                        let expr: syn::Expr = content.parse()?;
-                        wrap.push(expr);
-                        if content.peek(Token![,]) {
-                            content.parse::<Token![,]>()?;
+                    "auth" => {
+                        // auth: jwt | api_key | none (parsed as ident, not string)
+                        let ident: Ident = input.parse()?;
+                        auth = Some(ident.to_string());
+                    }
+                    "rate" => {
+                        let lit: LitStr = input.parse()?;
+                        rate = Some(lit.value());
+                    }
+                    "permissions" => {
+                        let content;
+                        bracketed!(content in input);
+                        while !content.is_empty() {
+                            let lit: LitStr = content.parse()?;
+                            permissions.push(lit.value());
+                            if content.peek(Token![,]) {
+                                content.parse::<Token![,]>()?;
+                            }
                         }
                     }
-                }
-                other => {
-                    return Err(syn::Error::new(
-                        key.span(),
-                        format!(
-                            "unknown route attribute `{}`. Expected: get/post/put/patch/delete, tag, desc, resps, auth, rate, wrap",
-                            other
-                        ),
-                    ));
+                    "middleware" | "wrap" => {
+                        let content;
+                        syn::bracketed!(content in input);
+                        while !content.is_empty() {
+                            let expr: syn::Expr = content.parse()?;
+                            wrap.push(expr);
+                            if content.peek(Token![,]) {
+                                content.parse::<Token![,]>()?;
+                            }
+                        }
+                    }
+                    "cache" => {
+                        let content;
+                        parenthesized!(content in input);
+                        while !content.is_empty() {
+                            let config_key: Ident = content.parse()?;
+                            content.parse::<Token![=]>()?;
+                            if config_key == "ttl" {
+                                let ttl_lit: LitInt = content.parse()?;
+                                cache_ttl = Some(ttl_lit.base10_parse()?);
+                            } else if config_key == "watch" {
+                                let array_content;
+                                syn::bracketed!(array_content in content);
+                                while !array_content.is_empty() {
+                                    let lit: LitStr = array_content.parse()?;
+                                    cache_watch.push(lit.value());
+                                    if array_content.peek(Token![,]) {
+                                        array_content.parse::<Token![,]>()?;
+                                    }
+                                }
+                            } else {
+                                return Err(syn::Error::new(config_key.span(), "Unknown cache parameter (expected ttl or watch)"));
+                            }
+                            if content.peek(Token![,]) {
+                                content.parse::<Token![,]>()?;
+                            }
+                        }
+                    }
+                    other => {
+                        return Err(syn::Error::new(
+                            key.span(),
+                            format!(
+                                "unknown route attribute `{}`. Expected: get/post/put/patch/delete, tag, desc, resps, auth, permissions, rate, middleware, wrap, cache",
+                                other
+                            ),
+                        ));
+                    }
                 }
             }
 
@@ -222,7 +277,7 @@ impl Parse for RouteAttr {
             )
         })?;
 
-        Ok(RouteAttr { method, path, tag, desc, resps, auth, rate, wrap })
+        Ok(RouteAttr { method, path, tag, desc, resps, auth, permissions, rate, wrap, cache_ttl, cache_watch })
     }
 }
 
@@ -348,13 +403,33 @@ pub fn expand_route(attr: TokenStream, item: TokenStream) -> TokenStream {
         Some(a) => quote! { ::core::option::Option::Some(#a) },
         None => quote! { ::core::option::Option::None },
     };
+    let perms_expr = if route_attr.permissions.is_empty() {
+        quote! { ::core::option::Option::None }
+    } else {
+        let p = &route_attr.permissions;
+        quote! { ::core::option::Option::Some(&[#(#p),*]) }
+    };
+
     let rate_expr = match &route_attr.rate {
         Some(r) => quote! { ::core::option::Option::Some(#r) },
         None => quote! { ::core::option::Option::None },
     };
 
+    // Cache metadata
+    let cache_ttl_expr = match &route_attr.cache_ttl {
+        Some(ttl) => quote! { ::core::option::Option::Some(#ttl) },
+        None => quote! { ::core::option::Option::None },
+    };
+    
+    let cache_watch_expr = if route_attr.cache_watch.is_empty() {
+        quote! { ::core::option::Option::None }
+    } else {
+        let tags = &route_attr.cache_watch;
+        quote! { ::core::option::Option::Some(&[#(#tags),*]) }
+    };
+
     let wrap_calls = route_attr.wrap.iter().map(|w| {
-        quote! { .wrap(#w) }
+        quote! { .middleware(#w) }
     });
 
     let expanded = quote! {
@@ -369,7 +444,7 @@ pub fn expand_route(attr: TokenStream, item: TokenStream) -> TokenStream {
         ];
 
         // Auto-register this route natively via inventory, giving us complete
-        // control to inject middleware `.wrap()` calls.
+        // control to inject `.middleware()` calls.
         fn #register_fn_name(cfg: &mut ::floz::ntex::web::ServiceConfig) {
             let route = ::floz::ntex::web::resource(#ntex_path)
                 #(#wrap_calls)*
@@ -387,7 +462,13 @@ pub fn expand_route(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #register_fn_name,
                 &#resps_static_name,
                 #auth_expr,
+                #perms_expr,
                 #rate_expr,
+                ::core::option::Option::None,
+                false,
+                false,
+                #cache_ttl_expr,
+                #cache_watch_expr,
             )
         }
     };

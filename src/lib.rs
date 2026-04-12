@@ -2,6 +2,10 @@
 
 pub mod ast;
 pub mod codegen;
-pub mod parse;
+pub mod crud;
+pub mod model;
 pub mod route;
 pub mod task;
+pub mod extract;
+pub mod embed;
+pub mod channel;

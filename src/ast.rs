@@ -2,14 +2,12 @@
 //!
 //! These types represent the internal structure that the parser produces
 //! and the code generator consumes.
+//!
+//! Includes validation rules parsed from `#[col(...)]` attributes.
 
 use proc_macro2::Ident;
 
-/// The entire schema input — one or more model declarations.
-#[derive(Debug)]
-pub struct SchemaInput {
-    pub models: Vec<ModelDef>,
-}
+
 
 /// A single model declaration.
 ///
@@ -34,6 +32,8 @@ pub struct ModelDef {
     pub constraints: Vec<TableConstraint>,
     /// If true, user provides custom `impl FlozHooks` (don't generate default)
     pub has_custom_hooks: bool,
+    /// If true, this model supports soft deletes natively.
+    pub soft_delete: bool,
 }
 
 /// A database column field definition.
@@ -51,6 +51,8 @@ pub struct FieldDef {
     pub type_info: TypeInfo,
     /// Chained modifiers
     pub modifiers: Vec<Modifier>,
+    /// Validation rules parsed from `#[col(len(...), email, ...)]`
+    pub validations: Vec<ValidationRule>,
 }
 
 /// A relationship declaration.
@@ -58,14 +60,23 @@ pub struct FieldDef {
 /// ```ignore
 /// posts: array(Post, "author_id"),
 /// ```
+#[derive(Debug, Clone, PartialEq)]
+pub enum RelationType {
+    HasMany,
+    BelongsTo,
+    ManyToMany { through: String },
+}
+
 #[derive(Debug)]
 pub struct RelDef {
     /// The Rust field name used for the relationship accessor
     pub rust_name: Ident,
-    /// The target model (e.g., `Post`)
-    pub target_model: Ident,
-    /// The foreign key column name in the target table
+    /// The target model path (e.g., `Post` or `crate::app::post::Post`)
+    pub target_model: syn::Path,
+    /// The foreign key column name in the target table (for HasMany/BelongsTo)
     pub fk_column: String,
+    /// The logical relationship type
+    pub relation_type: RelationType,
 }
 
 /// Column type information from the type function.
@@ -119,20 +130,47 @@ pub enum TypeInfo {
 /// A modifier chained onto a field type.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Modifier {
-    /// `.primary()` — PRIMARY KEY
+    /// `.primary()` / `key` — PRIMARY KEY
     Primary,
-    /// `.auto_increment()` — SERIAL / BIGSERIAL
+    /// `.auto_increment()` / `auto` — SERIAL / BIGSERIAL
     AutoIncrement,
-    /// `.nullable()` — wraps Rust type in Option<T>
+    /// `.nullable()` / `Option<T>` — wraps Rust type in Option<T>
     Nullable,
-    /// `.unique()` — UNIQUE constraint
+    /// `.unique()` / `unique` — UNIQUE constraint
     Unique,
-    /// `.default("expression")` — DEFAULT <expr>
+    /// `.default("expression")` / `default = "expr"` — DEFAULT <expr>
     Default(String),
-    /// `.now()` — DEFAULT now()
+    /// `.now()` / `now` — DEFAULT now()
     Now,
-    /// `.tz()` — WITH TIME ZONE
+    /// `.tz()` — WITH TIME ZONE (used by schema! only)
     Tz,
+    /// `index` — CREATE INDEX on this column
+    Index,
+    /// `references("table", "column")` — FOREIGN KEY
+    References { table: String, column: String },
+    /// `on_delete = "cascade|set_null|restrict|no_action"` — FK behavior
+    OnDelete(String),
+}
+
+/// Validation rules attached to a field via `#[col(...)]`.
+///
+/// These are parsed at compile time and used to generate a `validate()`
+/// method on the model struct. The generated code is pure Rust —
+/// no external validation crate is exposed to the user.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ValidationRule {
+    /// `#[col(len(min = 1, max = 100))]` — string length bounds
+    Length { min: Option<u32>, max: Option<u32> },
+    /// `#[col(email)]` — must be a valid email address
+    Email,
+    /// `#[col(url)]` — must be a valid URL
+    Url,
+    /// `#[col(range(min = 0, max = 150))]` — numeric range bounds
+    Range { min: Option<f64>, max: Option<f64> },
+    /// `#[col(regex("^[a-z]+$"))]` — must match a regex pattern
+    Regex(String),
+    /// `#[col(required)]` — Option<T> must be Some
+    Required,
 }
 
 /// Table-level constraints.

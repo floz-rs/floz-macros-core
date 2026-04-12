@@ -90,3 +90,87 @@ fn test_parse_route_attr() {
     assert_eq!(route.auth.unwrap(), "jwt");
     assert_eq!(route.rate.unwrap(), "10/m");
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Cache attribute parsing tests
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+#[test]
+fn test_parse_cache_ttl_only() {
+    let ts: proc_macro2::TokenStream = quote::quote! {
+        get: "/health",
+        cache(ttl = 30)
+    };
+    let route: RouteAttr = syn::parse2(ts).unwrap();
+    assert_eq!(route.cache_ttl, Some(30));
+    assert!(route.cache_watch.is_empty());
+}
+
+#[test]
+fn test_parse_cache_ttl_and_watch() {
+    let ts: proc_macro2::TokenStream = quote::quote! {
+        get: "/users",
+        tag: "Users",
+        cache(ttl = 300, watch = ["users"])
+    };
+    let route: RouteAttr = syn::parse2(ts).unwrap();
+    assert_eq!(route.cache_ttl, Some(300));
+    assert_eq!(route.cache_watch, vec!["users"]);
+}
+
+#[test]
+fn test_parse_cache_multiple_watch_tags() {
+    let ts: proc_macro2::TokenStream = quote::quote! {
+        get: "/users/:id",
+        cache(ttl = 600, watch = ["users", "users:{id}"])
+    };
+    let route: RouteAttr = syn::parse2(ts).unwrap();
+    assert_eq!(route.cache_ttl, Some(600));
+    assert_eq!(route.cache_watch, vec!["users", "users:{id}"]);
+}
+
+#[test]
+fn test_parse_cache_with_all_attrs() {
+    let ts: proc_macro2::TokenStream = quote::quote! {
+        get: "/users/cached",
+        tag: "Users",
+        desc: "List all users (cached)",
+        resps: [(200, "OK")],
+        cache(ttl = 300, watch = ["users"]),
+        auth: jwt
+    };
+    let route: RouteAttr = syn::parse2(ts).unwrap();
+    assert!(matches!(route.method, HttpMethod::Get));
+    assert_eq!(route.path, "/users/cached");
+    assert_eq!(route.tag.unwrap(), "Users");
+    assert_eq!(route.desc.unwrap(), "List all users (cached)");
+    assert_eq!(route.resps.len(), 1);
+    assert_eq!(route.cache_ttl, Some(300));
+    assert_eq!(route.cache_watch, vec!["users"]);
+    assert_eq!(route.auth.unwrap(), "jwt");
+}
+
+#[test]
+fn test_parse_no_cache_has_none() {
+    let ts: proc_macro2::TokenStream = quote::quote! {
+        post: "/users",
+        tag: "Users"
+    };
+    let route: RouteAttr = syn::parse2(ts).unwrap();
+    assert!(route.cache_ttl.is_none());
+    assert!(route.cache_watch.is_empty());
+}
+
+#[test]
+fn test_parse_cache_watch_only_fails() {
+    // cache with only watch and no ttl should still parse
+    // (ttl remains None — the middleware simply won't cache)
+    let ts: proc_macro2::TokenStream = quote::quote! {
+        get: "/users",
+        cache(watch = ["users"])
+    };
+    let route: RouteAttr = syn::parse2(ts).unwrap();
+    assert!(route.cache_ttl.is_none());
+    assert_eq!(route.cache_watch, vec!["users"]);
+}
+
