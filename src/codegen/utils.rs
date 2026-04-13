@@ -1,7 +1,7 @@
+use super::types::type_tokens;
+use crate::ast::{FieldDef, TypeInfo};
 use proc_macro2::TokenStream;
 use quote::quote;
-use crate::ast::{FieldDef, TypeInfo};
-use super::types::type_tokens;
 
 /// Quote a table name for generated SQL strings.
 pub fn quote_table_str(name: &str) -> String {
@@ -40,16 +40,31 @@ pub fn pk_query_parts(pk_cols: &[&FieldDef]) -> (Vec<TokenStream>, String, Vec<T
 /// Convert a field value on `self` to a `Value` expression.
 pub fn to_value_expr(field: &FieldDef, receiver: TokenStream) -> TokenStream {
     let field_name = &field.rust_name;
-    to_value_tokens(&field.type_info, field.is_nullable(), field.is_tz(), quote! { #receiver.#field_name })
+    to_value_tokens(
+        &field.type_info,
+        field.is_nullable(),
+        field.is_tz(),
+        quote! { #receiver.#field_name },
+    )
 }
 
 /// Convert a field value from a named parameter to a `Value` expression.
 pub fn to_value_expr_ident(field: &FieldDef, ident: &proc_macro2::Ident) -> TokenStream {
-    to_value_tokens(&field.type_info, field.is_nullable(), field.is_tz(), quote! { #ident })
+    to_value_tokens(
+        &field.type_info,
+        field.is_nullable(),
+        field.is_tz(),
+        quote! { #ident },
+    )
 }
 
 /// Map a Rust field expression to the appropriate `Value` variant.
-pub fn to_value_tokens(type_info: &TypeInfo, nullable: bool, tz: bool, expr: TokenStream) -> TokenStream {
+pub fn to_value_tokens(
+    type_info: &TypeInfo,
+    nullable: bool,
+    tz: bool,
+    expr: TokenStream,
+) -> TokenStream {
     if nullable {
         return match type_info {
             TypeInfo::Integer => quote! { floz::Value::OptionInt(#expr) },
@@ -58,7 +73,9 @@ pub fn to_value_tokens(type_info: &TypeInfo, nullable: bool, tz: bool, expr: Tok
             TypeInfo::Real => quote! { floz::Value::OptionReal(#expr) },
             TypeInfo::Double => quote! { floz::Value::OptionDouble(#expr) },
             TypeInfo::Bool => quote! { floz::Value::OptionBool(#expr) },
-            TypeInfo::Varchar { .. } | TypeInfo::Text => quote! { floz::Value::OptionString(#expr.clone()) },
+            TypeInfo::Varchar { .. } | TypeInfo::Text => {
+                quote! { floz::Value::OptionString(#expr.clone()) }
+            }
             TypeInfo::Uuid => quote! { floz::Value::OptionUuid(#expr) },
             TypeInfo::DateTime => {
                 if tz {
@@ -73,7 +90,9 @@ pub fn to_value_tokens(type_info: &TypeInfo, nullable: bool, tz: bool, expr: Tok
             TypeInfo::Json => quote! { floz::Value::OptionJson(#expr.clone()) },
             TypeInfo::Jsonb => quote! { floz::Value::OptionJsonb(#expr.clone()) },
             TypeInfo::Ltree => quote! { floz::Value::OptionString(#expr.clone()) },
-            TypeInfo::Enum { .. } => quote! { floz::Value::OptionString(#expr.clone().map(|v| v.to_string())) },
+            TypeInfo::Enum { .. } => {
+                quote! { floz::Value::OptionString(#expr.clone().map(|v| v.to_string())) }
+            }
             _ => quote! { floz::Value::OptionString(#expr.clone().map(|v| format!("{:?}", v))) },
         };
     }
@@ -85,7 +104,9 @@ pub fn to_value_tokens(type_info: &TypeInfo, nullable: bool, tz: bool, expr: Tok
         TypeInfo::Real => quote! { floz::Value::Real(#expr) },
         TypeInfo::Double => quote! { floz::Value::Double(#expr) },
         TypeInfo::Bool => quote! { floz::Value::Bool(#expr) },
-        TypeInfo::Varchar { .. } | TypeInfo::Text | TypeInfo::Ltree => quote! { floz::Value::String(#expr.clone()) },
+        TypeInfo::Varchar { .. } | TypeInfo::Text | TypeInfo::Ltree => {
+            quote! { floz::Value::String(#expr.clone()) }
+        }
         TypeInfo::Uuid => quote! { floz::Value::Uuid(#expr) },
         TypeInfo::DateTime => {
             if tz {

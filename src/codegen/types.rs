@@ -1,6 +1,6 @@
+use crate::ast::TypeInfo;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use crate::ast::TypeInfo;
 
 /// Convert a TypeInfo to a Rust type TokenStream.
 pub fn type_tokens(type_info: &TypeInfo, nullable: bool, tz: bool) -> TokenStream {
@@ -93,9 +93,15 @@ pub fn default_value_tokens(type_info: &TypeInfo, nullable: bool, tz: bool) -> T
         TypeInfo::Json | TypeInfo::Jsonb => quote! { serde_json::Value::Null },
         TypeInfo::Ltree => quote! { String::new() },
         // Arrays
-        TypeInfo::TextArray | TypeInfo::VarcharArray | TypeInfo::IntArray
-        | TypeInfo::ShortArray | TypeInfo::BigIntArray | TypeInfo::UuidArray
-        | TypeInfo::BoolArray | TypeInfo::RealArray | TypeInfo::DoubleArray => {
+        TypeInfo::TextArray
+        | TypeInfo::VarcharArray
+        | TypeInfo::IntArray
+        | TypeInfo::ShortArray
+        | TypeInfo::BigIntArray
+        | TypeInfo::UuidArray
+        | TypeInfo::BoolArray
+        | TypeInfo::RealArray
+        | TypeInfo::DoubleArray => {
             quote! { Vec::new() }
         }
     }

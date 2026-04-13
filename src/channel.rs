@@ -2,7 +2,10 @@
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse::Parse, parse::ParseStream, Ident, LitStr, Token, ItemFn, Result, FnArg, PatType, PatIdent};
+use syn::{
+    parse::Parse, parse::ParseStream, FnArg, Ident, ItemFn, LitStr, PatIdent, PatType, Result,
+    Token,
+};
 
 pub struct ChannelAttr {
     pub pattern: String,
@@ -11,7 +14,9 @@ pub struct ChannelAttr {
 impl Parse for ChannelAttr {
     fn parse(input: ParseStream) -> Result<Self> {
         let lit: LitStr = input.parse()?;
-        Ok(ChannelAttr { pattern: lit.value() })
+        Ok(ChannelAttr {
+            pattern: lit.value(),
+        })
     }
 }
 
@@ -64,10 +69,7 @@ pub fn expand_channel_gate(attr: TokenStream, item: TokenStream) -> TokenStream 
         }
     }
 
-    let wrapper_fn_name = syn::Ident::new(
-        &format!("__floz_call_gate_{}", fn_name),
-        fn_name.span(),
-    );
+    let wrapper_fn_name = syn::Ident::new(&format!("__floz_call_gate_{}", fn_name), fn_name.span());
 
     let expanded = quote! {
         #(#fn_attrs)*
@@ -75,11 +77,11 @@ pub fn expand_channel_gate(attr: TokenStream, item: TokenStream) -> TokenStream 
 
         #[allow(non_snake_case)]
         fn #wrapper_fn_name(
-            __ctx: ::floz::prelude::Context, 
+            __ctx: ::floz::prelude::Context,
             __vars: ::std::collections::HashMap<String, String>
         ) -> ::std::pin::Pin<Box<dyn ::std::future::Future<Output = bool> + Send + 'static>> {
             #(#param_extractors)*
-            
+
             ::std::boxed::Box::pin(async move {
                 #fn_name(#(#call_args),*).await
             })

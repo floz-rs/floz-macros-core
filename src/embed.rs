@@ -20,7 +20,7 @@ pub fn expand_embed_migrations() -> TokenStream {
                             for mig in migs.flatten() {
                                 let name = mig.file_name().into_string().unwrap();
                                 if name.starts_with('v') && name.ends_with(".json") {
-                                    if let Ok(v) = name[1..name.len()-5].parse::<i32>() {
+                                    if let Ok(v) = name[1..name.len() - 5].parse::<i32>() {
                                         let file_path = mig.path().to_string_lossy().to_string();
                                         // We use include_str! to embed it strictly at compile time
                                         tuples.push(quote! {

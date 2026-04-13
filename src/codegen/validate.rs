@@ -6,9 +6,9 @@
 //! The generated code is pure Rust — no external validation crate.
 //! Uses `floz::ValidationErrors` for error accumulation.
 
+use crate::ast::{ModelDef, ValidationRule};
 use proc_macro2::TokenStream;
 use quote::quote;
-use crate::ast::{ModelDef, ValidationRule};
 
 /// Generate a `validate()` method if any field has validation rules.
 pub fn generate_validate(model: &ModelDef) -> TokenStream {
@@ -29,7 +29,10 @@ pub fn generate_validate(model: &ModelDef) -> TokenStream {
         .flat_map(|field| {
             let field_name = &field.rust_name;
             let field_name_str = field_name.to_string();
-            let is_nullable = field.modifiers.iter().any(|m| matches!(m, crate::ast::Modifier::Nullable));
+            let is_nullable = field
+                .modifiers
+                .iter()
+                .any(|m| matches!(m, crate::ast::Modifier::Nullable));
 
             field.validations.iter().map(move |rule| {
                 match rule {

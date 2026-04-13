@@ -1,6 +1,6 @@
+use crate::ast::TypeInfo;
 use quote::quote;
 use syn::Type;
-use crate::ast::TypeInfo;
 
 /// Resolve a Rust type token into a TypeInfo + nullable flag + tz flag.
 ///
@@ -29,7 +29,14 @@ pub(crate) fn resolve_type(ty: &Type) -> syn::Result<(TypeInfo, bool, bool)> {
         // Float types
         "f32" => Ok((TypeInfo::Real, false, false)),
         "f64" => Ok((TypeInfo::Double, false, false)),
-        "Decimal" => Ok((TypeInfo::Decimal { precision: 10, scale: 2 }, false, false)),
+        "Decimal" => Ok((
+            TypeInfo::Decimal {
+                precision: 10,
+                scale: 2,
+            },
+            false,
+            false,
+        )),
 
         // Boolean
         "bool" => Ok((TypeInfo::Bool, false, false)),
@@ -41,12 +48,8 @@ pub(crate) fn resolve_type(ty: &Type) -> syn::Result<(TypeInfo, bool, bool)> {
         "TimestampTz" | "DateTime < Utc >" | "chrono :: DateTime < chrono :: Utc >" => {
             Ok((TypeInfo::DateTime, false, true))
         }
-        "Date" | "NaiveDate" | "chrono :: NaiveDate" => {
-            Ok((TypeInfo::Date, false, false))
-        }
-        "NaiveTime" | "chrono :: NaiveTime" => {
-            Ok((TypeInfo::Time, false, false))
-        }
+        "Date" | "NaiveDate" | "chrono :: NaiveDate" => Ok((TypeInfo::Date, false, false)),
+        "NaiveTime" | "chrono :: NaiveTime" => Ok((TypeInfo::Time, false, false)),
 
         // UUID
         "Uuid" | "uuid :: Uuid" => Ok((TypeInfo::Uuid, false, false)),
@@ -69,18 +72,16 @@ pub(crate) fn resolve_type(ty: &Type) -> syn::Result<(TypeInfo, bool, bool)> {
         "Vec < f32 >" => Ok((TypeInfo::RealArray, false, false)),
         "Vec < f64 >" => Ok((TypeInfo::DoubleArray, false, false)),
 
-        _ => {
-            Err(syn::Error::new_spanned(
-                ty,
-                format!(
-                    "unknown type `{}` in #[model] struct.\n\
+        _ => Err(syn::Error::new_spanned(
+            ty,
+            format!(
+                "unknown type `{}` in #[model] struct.\n\
                      Supported types: Varchar, Text, String, i32, i64, i16, f32, f64, Decimal, \
                      bool, Timestamp, TimestampTz, Date, Uuid, Json, Jsonb, Bytes, \
                      Vec<String>, Vec<i32>, Vec<i64>, and Option<T> for any of these.",
-                    type_name
-                ),
-            ))
-        }
+                type_name
+            ),
+        )),
     }
 }
 

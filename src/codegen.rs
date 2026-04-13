@@ -21,11 +21,9 @@ mod types;
 mod utils;
 mod validate;
 
-pub use types::{default_value_tokens, type_tokens};
 pub use relations::{derive_fk_name, derive_target_fk_name};
+pub use types::{default_value_tokens, type_tokens};
 pub use utils::path_to_table_ident;
-
-
 
 fn generate_model(model: &ModelDef) -> TokenStream {
     let struct_tokens = structs::generate_struct(model);

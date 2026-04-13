@@ -173,4 +173,3 @@ fn test_parse_cache_watch_only_fails() {
     assert!(route.cache_ttl.is_none());
     assert_eq!(route.cache_watch, vec!["users"]);
 }
-

@@ -16,10 +16,10 @@ use crate::crud;
 
 pub(crate) mod attr;
 pub(crate) mod builder;
-pub mod snapshot;
 mod col;
 mod modify;
 mod rel;
+pub mod snapshot;
 mod types;
 
 use attr::parse_model_attr;

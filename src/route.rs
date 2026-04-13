@@ -24,8 +24,8 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse::Parse, parse::ParseStream, Ident, LitStr, LitInt, Token, ItemFn, Result,
-    bracketed, parenthesized,
+    bracketed, parenthesized, parse::Parse, parse::ParseStream, Ident, ItemFn, LitInt, LitStr,
+    Result, Token,
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -110,7 +110,12 @@ impl Parse for ResponseSpec {
             }
         }
 
-        Ok(ResponseSpec { status, description, content_type, schema_type })
+        Ok(ResponseSpec {
+            status,
+            description,
+            content_type,
+            schema_type,
+        })
     }
 }
 
@@ -238,7 +243,10 @@ impl Parse for RouteAttr {
                                     }
                                 }
                             } else {
-                                return Err(syn::Error::new(config_key.span(), "Unknown cache parameter (expected ttl or watch)"));
+                                return Err(syn::Error::new(
+                                    config_key.span(),
+                                    "Unknown cache parameter (expected ttl or watch)",
+                                ));
                             }
                             if content.peek(Token![,]) {
                                 content.parse::<Token![,]>()?;
@@ -277,7 +285,19 @@ impl Parse for RouteAttr {
             )
         })?;
 
-        Ok(RouteAttr { method, path, tag, desc, resps, auth, permissions, rate, wrap, cache_ttl, cache_watch })
+        Ok(RouteAttr {
+            method,
+            path,
+            tag,
+            desc,
+            resps,
+            auth,
+            permissions,
+            rate,
+            wrap,
+            cache_ttl,
+            cache_watch,
+        })
     }
 }
 
@@ -389,10 +409,7 @@ pub fn expand_route(attr: TokenStream, item: TokenStream) -> TokenStream {
     }).collect();
 
     // Generate a unique static name for this route's registrar and response array
-    let register_fn_name = syn::Ident::new(
-        &format!("__floz_register_{}", fn_name),
-        fn_name.span(),
-    );
+    let register_fn_name = syn::Ident::new(&format!("__floz_register_{}", fn_name), fn_name.span());
     let resps_static_name = syn::Ident::new(
         &format!("__FLOZ_RESPS_{}", fn_name.to_string().to_uppercase()),
         fn_name.span(),
@@ -420,7 +437,7 @@ pub fn expand_route(attr: TokenStream, item: TokenStream) -> TokenStream {
         Some(ttl) => quote! { ::core::option::Option::Some(#ttl) },
         None => quote! { ::core::option::Option::None },
     };
-    
+
     let cache_watch_expr = if route_attr.cache_watch.is_empty() {
         quote! { ::core::option::Option::None }
     } else {
@@ -449,7 +466,7 @@ pub fn expand_route(attr: TokenStream, item: TokenStream) -> TokenStream {
             let route = ::floz::ntex::web::resource(#ntex_path)
                 #(#wrap_calls)*
                 .route(::floz::ntex::web::#method_ident().to(#fn_name));
-            
+
             cfg.service(route);
         }
 
@@ -491,5 +508,3 @@ pub fn expand_main(item: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
         #input
     }
 }
-
-

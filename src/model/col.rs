@@ -1,5 +1,5 @@
-use syn::{LitInt, LitStr, LitFloat};
 use crate::ast::{Modifier, TypeInfo, ValidationRule};
+use syn::{LitFloat, LitInt, LitStr};
 
 /// Internal-only modifier for `#[col(name = "...")]` (not a DB modifier).
 #[allow(dead_code)]
@@ -28,7 +28,9 @@ pub(crate) fn parse_col_attrs(field: &syn::Field) -> syn::Result<ColParseResult>
         }
 
         attr.parse_nested_meta(|meta| {
-            let ident = meta.path.get_ident()
+            let ident = meta
+                .path
+                .get_ident()
                 .ok_or_else(|| meta.error("expected identifier"))?;
 
             match ident.to_string().as_str() {
@@ -108,16 +110,21 @@ pub(crate) fn parse_col_attrs(field: &syn::Field) -> syn::Result<ColParseResult>
                         match key.to_string().as_str() {
                             "min" => min_val = Some(n),
                             "max" => max_val = Some(n),
-                            other => return Err(syn::Error::new_spanned(
-                                &key,
-                                format!("unknown len param `{}`. Expected: min, max", other),
-                            )),
+                            other => {
+                                return Err(syn::Error::new_spanned(
+                                    &key,
+                                    format!("unknown len param `{}`. Expected: min, max", other),
+                                ))
+                            }
                         }
                         if content.peek(syn::Token![,]) {
                             content.parse::<syn::Token![,]>()?;
                         }
                     }
-                    validations.push(ValidationRule::Length { min: min_val, max: max_val });
+                    validations.push(ValidationRule::Length {
+                        min: min_val,
+                        max: max_val,
+                    });
                 }
 
                 "email" => {
@@ -148,16 +155,21 @@ pub(crate) fn parse_col_attrs(field: &syn::Field) -> syn::Result<ColParseResult>
                         match key.to_string().as_str() {
                             "min" => min_val = Some(n),
                             "max" => max_val = Some(n),
-                            other => return Err(syn::Error::new_spanned(
-                                &key,
-                                format!("unknown range param `{}`. Expected: min, max", other),
-                            )),
+                            other => {
+                                return Err(syn::Error::new_spanned(
+                                    &key,
+                                    format!("unknown range param `{}`. Expected: min, max", other),
+                                ))
+                            }
                         }
                         if content.peek(syn::Token![,]) {
                             content.parse::<syn::Token![,]>()?;
                         }
                     }
-                    validations.push(ValidationRule::Range { min: min_val, max: max_val });
+                    validations.push(ValidationRule::Range {
+                        min: min_val,
+                        max: max_val,
+                    });
                 }
 
                 "regex" => {
@@ -186,7 +198,10 @@ pub(crate) fn parse_col_attrs(field: &syn::Field) -> syn::Result<ColParseResult>
         })?;
     }
 
-    Ok(ColParseResult { modifiers, validations })
+    Ok(ColParseResult {
+        modifiers,
+        validations,
+    })
 }
 
 /// Extract `#[col(name = "...")]` if present.

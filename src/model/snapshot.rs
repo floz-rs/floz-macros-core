@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::ast::{FieldDef, ModelDef, Modifier, RelDef, TableConstraint, TypeInfo};
 use quote::quote;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct SnapshotModel {
@@ -61,7 +61,9 @@ impl From<&FieldDef> for SnapshotField {
                 TypeInfo::BigInt => "BigInt".to_string(),
                 TypeInfo::Real => "Real".to_string(),
                 TypeInfo::Double => "Double".to_string(),
-                TypeInfo::Decimal { precision, scale } => format!("Decimal({},{})", precision, scale),
+                TypeInfo::Decimal { precision, scale } => {
+                    format!("Decimal({},{})", precision, scale)
+                }
                 TypeInfo::Varchar { max_length } => format!("Varchar({})", max_length),
                 TypeInfo::Text => "Text".to_string(),
                 TypeInfo::Bool => "Bool".to_string(),
@@ -77,18 +79,24 @@ impl From<&FieldDef> for SnapshotField {
                 TypeInfo::Col { rust_type } => format!("Col({})", rust_type),
                 _ => "Array".to_string(), // Catch native arrays
             },
-            modifiers: f.modifiers.iter().map(|m| match m {
-                Modifier::Primary => "Primary".to_string(),
-                Modifier::AutoIncrement => "AutoIncrement".to_string(),
-                Modifier::Nullable => "Nullable".to_string(),
-                Modifier::Unique => "Unique".to_string(),
-                Modifier::Default(val) => format!("Default({})", val),
-                Modifier::Now => "Now".to_string(),
-                Modifier::Tz => "Tz".to_string(),
-                Modifier::Index => "Index".to_string(),
-                Modifier::References { table, column } => format!("References({},{})", table, column),
-                Modifier::OnDelete(action) => format!("OnDelete({})", action),
-            }).collect(),
+            modifiers: f
+                .modifiers
+                .iter()
+                .map(|m| match m {
+                    Modifier::Primary => "Primary".to_string(),
+                    Modifier::AutoIncrement => "AutoIncrement".to_string(),
+                    Modifier::Nullable => "Nullable".to_string(),
+                    Modifier::Unique => "Unique".to_string(),
+                    Modifier::Default(val) => format!("Default({})", val),
+                    Modifier::Now => "Now".to_string(),
+                    Modifier::Tz => "Tz".to_string(),
+                    Modifier::Index => "Index".to_string(),
+                    Modifier::References { table, column } => {
+                        format!("References({},{})", table, column)
+                    }
+                    Modifier::OnDelete(action) => format!("OnDelete({})", action),
+                })
+                .collect(),
         }
     }
 }

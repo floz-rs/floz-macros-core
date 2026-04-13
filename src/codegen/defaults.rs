@@ -1,7 +1,7 @@
+use super::types::default_value_tokens;
+use crate::ast::ModelDef;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use crate::ast::ModelDef;
-use super::types::default_value_tokens;
 
 pub fn generate_default(model: &ModelDef) -> TokenStream {
     let name = &model.name;
@@ -11,7 +11,8 @@ pub fn generate_default(model: &ModelDef) -> TokenStream {
         .iter()
         .map(|field| {
             let rust_name = &field.rust_name;
-            let default_val = default_value_tokens(&field.type_info, field.is_nullable(), field.is_tz());
+            let default_val =
+                default_value_tokens(&field.type_info, field.is_nullable(), field.is_tz());
             quote! { #rust_name: #default_val, }
         })
         .collect();

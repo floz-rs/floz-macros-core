@@ -7,8 +7,6 @@
 
 use proc_macro2::Ident;
 
-
-
 /// A single model declaration.
 ///
 /// ```ignore
@@ -189,17 +187,23 @@ pub enum TableConstraint {
 impl FieldDef {
     /// Check if this field has the `.primary()` modifier.
     pub fn is_primary(&self) -> bool {
-        self.modifiers.iter().any(|m| matches!(m, Modifier::Primary))
+        self.modifiers
+            .iter()
+            .any(|m| matches!(m, Modifier::Primary))
     }
 
     /// Check if this field has the `.nullable()` modifier.
     pub fn is_nullable(&self) -> bool {
-        self.modifiers.iter().any(|m| matches!(m, Modifier::Nullable))
+        self.modifiers
+            .iter()
+            .any(|m| matches!(m, Modifier::Nullable))
     }
 
     /// Check if this field has the `.auto_increment()` modifier.
     pub fn is_auto_increment(&self) -> bool {
-        self.modifiers.iter().any(|m| matches!(m, Modifier::AutoIncrement))
+        self.modifiers
+            .iter()
+            .any(|m| matches!(m, Modifier::AutoIncrement))
     }
 
     /// Check if this field has the `.unique()` modifier.
@@ -220,16 +224,16 @@ impl ModelDef {
         // First: check for @primary_key constraint
         for constraint in &self.constraints {
             if let TableConstraint::PrimaryKey(cols) = constraint {
-                return self.db_columns.iter()
+                return self
+                    .db_columns
+                    .iter()
                     .filter(|f| cols.contains(&f.rust_name.to_string()))
                     .collect();
             }
         }
 
         // Fallback: fields with .primary() modifier
-        self.db_columns.iter()
-            .filter(|f| f.is_primary())
-            .collect()
+        self.db_columns.iter().filter(|f| f.is_primary()).collect()
     }
 
     /// Returns true if this model has no primary key.
@@ -282,5 +286,3 @@ impl TypeInfo {
         }
     }
 }
-
-

@@ -1,7 +1,7 @@
+use super::utils::{pk_query_parts, quote_table_str, to_value_expr};
+use crate::ast::{FieldDef, ModelDef};
 use proc_macro2::TokenStream;
 use quote::quote;
-use crate::ast::{ModelDef, FieldDef};
-use super::utils::{to_value_expr, pk_query_parts, quote_table_str};
 
 pub fn generate_dao(model: &ModelDef) -> TokenStream {
     let name = &model.name;
@@ -260,7 +260,7 @@ fn generate_save(model: &ModelDef, pk_cols: &[&FieldDef]) -> TokenStream {
 
             db.execute_raw(&sql, params).await?;
             self.clear_dirty();
-            
+
             floz::FlozHooks::after_save(self);
             Ok(())
         }
@@ -273,7 +273,10 @@ fn generate_delete(model: &ModelDef, pk_cols: &[&FieldDef]) -> TokenStream {
 
     let (_, mut where_clause, _) = pk_query_parts(pk_cols);
     let sql = if model.soft_delete {
-        format!("UPDATE {} SET deleted_at = NOW() WHERE {}", table, where_clause)
+        format!(
+            "UPDATE {} SET deleted_at = NOW() WHERE {}",
+            table, where_clause
+        )
     } else {
         format!("DELETE FROM {} WHERE {}", table, where_clause)
     };

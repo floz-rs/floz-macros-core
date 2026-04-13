@@ -1,6 +1,6 @@
+use crate::crud::{self, CrudConfig};
 use proc_macro2::{Span, TokenStream};
 use syn::{parse2, LitStr};
-use crate::crud::{self, CrudConfig};
 
 pub(crate) struct ModelAttr {
     pub table_name: String,
@@ -146,7 +146,9 @@ fn parse_crud_options(input: syn::parse::ParseStream) -> syn::Result<CrudConfig>
 }
 
 /// Parse `#[model("table")]` or `#[model("table", crud)]` or `#[model("table", soft_delete)]`.
-pub(crate) fn parse_model_attr(attr: TokenStream) -> syn::Result<(String, Option<CrudConfig>, bool)> {
+pub(crate) fn parse_model_attr(
+    attr: TokenStream,
+) -> syn::Result<(String, Option<CrudConfig>, bool)> {
     let parsed: ModelAttr = parse2(attr)?;
     Ok((parsed.table_name, parsed.crud_config, parsed.soft_delete))
 }

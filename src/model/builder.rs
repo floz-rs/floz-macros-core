@@ -1,13 +1,17 @@
-use syn::{Fields, ItemStruct};
-use crate::ast::{FieldDef, ModelDef, Modifier};
 use super::col::{apply_type_overrides, extract_col_name, parse_col_attrs};
 use super::rel::parse_rel_attrs;
 use super::types::resolve_type;
+use crate::ast::{FieldDef, ModelDef, Modifier};
+use syn::{Fields, ItemStruct};
 
 use quote::format_ident;
 
 /// Build a `ModelDef` from a parsed struct + its `#[col(...)]` field attributes.
-pub(crate) fn build_model_def(input: &ItemStruct, table_name: &str, soft_delete: bool) -> syn::Result<ModelDef> {
+pub(crate) fn build_model_def(
+    input: &ItemStruct,
+    table_name: &str,
+    soft_delete: bool,
+) -> syn::Result<ModelDef> {
     let fields = match &input.fields {
         Fields::Named(named) => &named.named,
         _ => {
@@ -55,8 +59,7 @@ pub(crate) fn build_model_def(input: &ItemStruct, table_name: &str, soft_delete:
         let type_info = apply_type_overrides(type_info, &modifiers);
 
         // Determine column name: #[col(name = "...")] or rust field name
-        let column_name = extract_col_name(&modifiers)
-            .unwrap_or_else(|| rust_name.to_string());
+        let column_name = extract_col_name(&modifiers).unwrap_or_else(|| rust_name.to_string());
 
         db_columns.push(FieldDef {
             rust_name,
@@ -84,7 +87,8 @@ pub(crate) fn build_model_def(input: &ItemStruct, table_name: &str, soft_delete:
             format!(
                 "Model `{}` has {} columns, but the maximum is 64 (u64 bitmask limit). \
                  Consider normalizing your schema.",
-                input.ident, db_columns.len()
+                input.ident,
+                db_columns.len()
             ),
         ));
     }
@@ -97,7 +101,7 @@ pub(crate) fn build_model_def(input: &ItemStruct, table_name: &str, soft_delete:
         table_name: table_name.to_string(),
         db_columns,
         relationships,
-        constraints: Vec::new(),   // table constraints from struct attrs (future)
+        constraints: Vec::new(), // table constraints from struct attrs (future)
         has_custom_hooks,
         soft_delete,
     })

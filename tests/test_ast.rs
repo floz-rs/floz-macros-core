@@ -12,7 +12,7 @@ fn test_field_def_modifiers() {
         column_name: "id".to_string(),
         type_info: TypeInfo::Integer,
         modifiers: vec![],
-            validations: vec![],
+        validations: vec![],
     };
 
     assert!(!field.is_primary());
@@ -40,7 +40,8 @@ fn test_model_def_primary_key() {
         rust_name: make_ident("id"),
         column_name: "id".to_string(),
         type_info: TypeInfo::Integer,
-        modifiers: vec![Modifier::Primary], validations: vec![],
+        modifiers: vec![Modifier::Primary],
+        validations: vec![],
     };
 
     let field_name = FieldDef {
@@ -48,7 +49,7 @@ fn test_model_def_primary_key() {
         column_name: "name".to_string(),
         type_info: TypeInfo::Text,
         modifiers: vec![],
-            validations: vec![],
+        validations: vec![],
     };
 
     let model = ModelDef {
@@ -58,6 +59,7 @@ fn test_model_def_primary_key() {
         relationships: vec![],
         constraints: vec![],
         has_custom_hooks: false,
+        soft_delete: false,
     };
 
     assert!(model.has_primary_key());
@@ -73,7 +75,7 @@ fn test_model_def_composite_primary_key() {
         column_name: "c1".to_string(),
         type_info: TypeInfo::Integer,
         modifiers: vec![],
-            validations: vec![],
+        validations: vec![],
     };
 
     let field_c2 = FieldDef {
@@ -81,7 +83,7 @@ fn test_model_def_composite_primary_key() {
         column_name: "c2".to_string(),
         type_info: TypeInfo::Integer,
         modifiers: vec![],
-            validations: vec![],
+        validations: vec![],
     };
 
     let model = ModelDef {
@@ -94,6 +96,7 @@ fn test_model_def_composite_primary_key() {
             "c2".to_string(),
         ])],
         has_custom_hooks: false,
+        soft_delete: false,
     };
 
     assert!(model.has_primary_key());
@@ -111,7 +114,8 @@ fn test_index_modifier() {
         rust_name: make_ident("email"),
         column_name: "email".to_string(),
         type_info: TypeInfo::Varchar { max_length: 255 },
-        modifiers: vec![Modifier::Index], validations: vec![],
+        modifiers: vec![Modifier::Index],
+        validations: vec![],
     };
 
     assert!(field.modifiers.contains(&Modifier::Index));
@@ -137,19 +141,29 @@ fn test_references_modifier() {
         validations: vec![],
     };
 
-    assert!(field.modifiers.iter().any(|m| matches!(m, Modifier::References { .. })));
-    assert!(field.modifiers.iter().any(|m| matches!(m, Modifier::OnDelete(_))));
+    assert!(field
+        .modifiers
+        .iter()
+        .any(|m| matches!(m, Modifier::References { .. })));
+    assert!(field
+        .modifiers
+        .iter()
+        .any(|m| matches!(m, Modifier::OnDelete(_))));
 
     // Verify the values
-    if let Some(Modifier::References { table, column }) =
-        field.modifiers.iter().find(|m| matches!(m, Modifier::References { .. }))
+    if let Some(Modifier::References { table, column }) = field
+        .modifiers
+        .iter()
+        .find(|m| matches!(m, Modifier::References { .. }))
     {
         assert_eq!(table, "users");
         assert_eq!(column, "id");
     }
 
-    if let Some(Modifier::OnDelete(action)) =
-        field.modifiers.iter().find(|m| matches!(m, Modifier::OnDelete(_)))
+    if let Some(Modifier::OnDelete(action)) = field
+        .modifiers
+        .iter()
+        .find(|m| matches!(m, Modifier::OnDelete(_)))
     {
         assert_eq!(action, "cascade");
     }
@@ -162,12 +176,10 @@ fn test_on_delete_variants() {
             rust_name: make_ident("fk"),
             column_name: "fk".to_string(),
             type_info: TypeInfo::Integer,
-            modifiers: vec![Modifier::OnDelete(action.to_string())], validations: vec![],
+            modifiers: vec![Modifier::OnDelete(action.to_string())],
+            validations: vec![],
         };
-        assert_eq!(
-            field.modifiers[0],
-            Modifier::OnDelete(action.to_string())
-        );
+        assert_eq!(field.modifiers[0], Modifier::OnDelete(action.to_string()));
     }
 }
 
@@ -202,12 +214,14 @@ fn test_model_with_all_new_modifiers() {
                 rust_name: make_ident("slug"),
                 column_name: "slug".to_string(),
                 type_info: TypeInfo::Varchar { max_length: 255 },
-                modifiers: vec![Modifier::Unique, Modifier::Index], validations: vec![],
+                modifiers: vec![Modifier::Unique, Modifier::Index],
+                validations: vec![],
             },
         ],
         relationships: vec![],
         constraints: vec![],
         has_custom_hooks: false,
+        soft_delete: false,
     };
 
     assert!(model.has_primary_key());

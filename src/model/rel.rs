@@ -1,6 +1,9 @@
 use crate::ast::RelDef;
 
-pub(crate) fn parse_rel_attrs(field: &syn::Field, rust_name: syn::Ident) -> syn::Result<Option<RelDef>> {
+pub(crate) fn parse_rel_attrs(
+    field: &syn::Field,
+    rust_name: syn::Ident,
+) -> syn::Result<Option<RelDef>> {
     for attr in &field.attrs {
         // [1] Check for #[rel(...)]
         if attr.path().is_ident("rel") {
@@ -9,7 +12,9 @@ pub(crate) fn parse_rel_attrs(field: &syn::Field, rust_name: syn::Ident) -> syn:
             let mut fk_column: Option<String> = None;
 
             attr.parse_nested_meta(|meta| {
-                let ident = meta.path.get_ident()
+                let ident = meta
+                    .path
+                    .get_ident()
                     .ok_or_else(|| meta.error("expected rel identifier"))?
                     .to_string();
 
@@ -35,7 +40,10 @@ pub(crate) fn parse_rel_attrs(field: &syn::Field, rust_name: syn::Ident) -> syn:
                     } else if key == "foreign_key" {
                         fk_column = Some(val.value());
                     } else {
-                        return Err(syn::Error::new_spanned(key, "expected `model` or `foreign_key`"));
+                        return Err(syn::Error::new_spanned(
+                            key,
+                            "expected `model` or `foreign_key`",
+                        ));
                     }
 
                     if content.peek(syn::Token![,]) {
@@ -46,7 +54,9 @@ pub(crate) fn parse_rel_attrs(field: &syn::Field, rust_name: syn::Ident) -> syn:
                 Ok(())
             })?;
 
-            if let (Some(rel_type), Some(target), Some(fk)) = (relation_type, target_model, fk_column) {
+            if let (Some(rel_type), Some(target), Some(fk)) =
+                (relation_type, target_model, fk_column)
+            {
                 return Ok(Some(RelDef {
                     rust_name,
                     target_model: target,
@@ -54,10 +64,13 @@ pub(crate) fn parse_rel_attrs(field: &syn::Field, rust_name: syn::Ident) -> syn:
                     relation_type: rel_type,
                 }));
             } else {
-                return Err(syn::Error::new_spanned(attr, "missing `model` or `foreign_key` inside #[rel(...)]"));
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    "missing `model` or `foreign_key` inside #[rel(...)]",
+                ));
             }
         }
-        
+
         // [2] Check for #[m2m(Role, through = "user_roles")]
         if attr.path().is_ident("m2m") {
             let mut target_model: Option<syn::Path> = None;
@@ -92,7 +105,10 @@ pub(crate) fn parse_rel_attrs(field: &syn::Field, rust_name: syn::Ident) -> syn:
                     },
                 }));
             } else {
-                return Err(syn::Error::new_spanned(attr, "missing target model in #[m2m(...)]"));
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    "missing target model in #[m2m(...)]",
+                ));
             }
         }
     }

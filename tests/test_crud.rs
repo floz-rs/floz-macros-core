@@ -1,5 +1,5 @@
-use floz_macros_core::ast::{ModelDef, Modifier, TypeInfo, FieldDef};
-use floz_macros_core::crud::{parse_crud_config, generate_crud_routes, CrudOp, CrudConfig};
+use floz_macros_core::ast::{FieldDef, ModelDef, Modifier, TypeInfo};
+use floz_macros_core::crud::{generate_crud_routes, parse_crud_config, CrudConfig, CrudOp};
 use quote::quote;
 
 // ═══════════════════════════════════════════════════════════════
@@ -12,7 +12,16 @@ use quote::quote;
 #[test]
 fn test_crud_config_defaults() {
     let config = CrudConfig::default();
-    assert_eq!(config.operations(), vec![CrudOp::List, CrudOp::Create, CrudOp::Get, CrudOp::Update, CrudOp::Delete]);
+    assert_eq!(
+        config.operations(),
+        vec![
+            CrudOp::List,
+            CrudOp::Create,
+            CrudOp::Get,
+            CrudOp::Update,
+            CrudOp::Delete
+        ]
+    );
     assert_eq!(config.base_path("notes"), "/notes");
     assert_eq!(config.tag_name("Note"), "Note");
     assert!(config.auth.is_none());
@@ -43,7 +52,10 @@ fn test_crud_config_exclude() {
         auth: None,
     };
 
-    assert_eq!(config.operations(), vec![CrudOp::List, CrudOp::Create, CrudOp::Get]);
+    assert_eq!(
+        config.operations(),
+        vec![CrudOp::List, CrudOp::Create, CrudOp::Get]
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -73,6 +85,7 @@ fn dummy_model() -> ModelDef {
         relationships: vec![],
         constraints: vec![],
         has_custom_hooks: false,
+        soft_delete: false,
     }
 }
 
@@ -80,7 +93,7 @@ fn dummy_model() -> ModelDef {
 fn test_crud_codegen_all_routes() {
     let model = dummy_model();
     let config = CrudConfig::default();
-    
+
     let tokens = generate_crud_routes(&model, &config);
     let out = tokens.to_string();
 
@@ -104,7 +117,7 @@ fn test_crud_codegen_partial() {
         exclude: None,
         auth: None,
     };
-    
+
     let tokens = generate_crud_routes(&model, &config);
     let out = tokens.to_string();
 
@@ -127,7 +140,7 @@ fn test_crud_codegen_auth() {
         exclude: None,
         auth: Some("jwt".to_string()),
     };
-    
+
     let tokens = generate_crud_routes(&model, &config);
     let out = tokens.to_string();
 

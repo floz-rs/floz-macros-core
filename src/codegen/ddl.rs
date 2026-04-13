@@ -1,6 +1,6 @@
+use crate::ast::{ModelDef, Modifier, TableConstraint, TypeInfo};
 use proc_macro2::TokenStream;
 use quote::quote;
-use crate::ast::{ModelDef, TypeInfo, Modifier, TableConstraint};
 
 fn build_create_table_sql(model: &ModelDef) -> String {
     let mut sql = format!("CREATE TABLE IF NOT EXISTS {} (\n", model.table_name);
@@ -24,7 +24,13 @@ fn build_create_table_sql(model: &ModelDef) -> String {
             TypeInfo::Bool => "BOOLEAN".to_string(),
             TypeInfo::Date => "DATE".to_string(),
             TypeInfo::Time => "TIME".to_string(),
-            TypeInfo::DateTime => if field.is_tz() { "TIMESTAMPTZ".to_string() } else { "TIMESTAMP".to_string() },
+            TypeInfo::DateTime => {
+                if field.is_tz() {
+                    "TIMESTAMPTZ".to_string()
+                } else {
+                    "TIMESTAMP".to_string()
+                }
+            }
             TypeInfo::Uuid => "UUID".to_string(),
             TypeInfo::Binary => "BYTEA".to_string(),
             TypeInfo::Json | TypeInfo::Jsonb => "JSONB".to_string(),
@@ -52,9 +58,7 @@ fn build_create_table_sql(model: &ModelDef) -> String {
             match modifier {
                 Modifier::Primary => col_def.push_str(" PRIMARY KEY"),
                 Modifier::Unique => col_def.push_str(" UNIQUE"),
-                Modifier::Default(val) => {
-                    col_def.push_str(&format!(" DEFAULT {}", val))
-                },
+                Modifier::Default(val) => col_def.push_str(&format!(" DEFAULT {}", val)),
                 Modifier::Now => col_def.push_str(" DEFAULT CURRENT_TIMESTAMP"),
                 _ => {}
             }
@@ -77,7 +81,7 @@ fn build_create_table_sql(model: &ModelDef) -> String {
 
     sql.push_str(&columns.join(",\n"));
     sql.push_str("\n)");
-    
+
     sql
 }
 

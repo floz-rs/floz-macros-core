@@ -1,7 +1,7 @@
+use super::types::type_tokens;
+use crate::ast::ModelDef;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use crate::ast::ModelDef;
-use super::types::type_tokens;
 
 pub fn generate_struct(model: &ModelDef) -> TokenStream {
     let name = &model.name;

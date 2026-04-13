@@ -36,7 +36,13 @@ impl CrudOp {
     }
 
     fn all() -> Vec<Self> {
-        vec![CrudOp::List, CrudOp::Create, CrudOp::Get, CrudOp::Update, CrudOp::Delete]
+        vec![
+            CrudOp::List,
+            CrudOp::Create,
+            CrudOp::Get,
+            CrudOp::Update,
+            CrudOp::Delete,
+        ]
     }
 }
 
@@ -92,9 +98,7 @@ impl CrudConfig {
 
     /// Get the tag for OpenAPI docs.
     pub fn tag_name(&self, model_name: &str) -> String {
-        self.tag
-            .clone()
-            .unwrap_or_else(|| model_name.to_string())
+        self.tag.clone().unwrap_or_else(|| model_name.to_string())
     }
 }
 
@@ -236,9 +240,9 @@ pub fn generate_crud_routes(model: &ModelDef, config: &CrudConfig) -> TokenStrea
             let __model_name = <#model_name as ::floz::utoipa::ToSchema>::name().into_owned();
             let __model_schema = <#model_name as ::floz::utoipa::__dev::ComposeSchema>::compose(::std::vec![]);
             __vec.push((__model_name.clone(), __model_schema.into()));
-            
+
             let __list_name = format!("{}Paginated", __model_name);
-            
+
             let __list_schema = ::floz::utoipa::openapi::schema::ObjectBuilder::new()
                 .property("items", ::floz::utoipa::openapi::schema::ArrayBuilder::new()
                     .items(::floz::utoipa::openapi::schema::Ref::new(format!("#/components/schemas/{}", __model_name)))
@@ -257,14 +261,14 @@ pub fn generate_crud_routes(model: &ModelDef, config: &CrudConfig) -> TokenStrea
                 .required("has_next")
                 .required("has_prev")
                 .build();
-                
+
             ("".to_string(), ::floz::utoipa::openapi::schema::Schema::Object(__list_schema).into())
         })
     };
 
     let empty_register_fn = format_ident!("__crud_register_{}_empty", model_name_lower);
     let mut generated = Vec::new();
-    
+
     generated.push(quote! {
         fn #empty_register_fn(_cfg: &mut ::floz::ntex::web::ServiceConfig) {}
     });
@@ -328,9 +332,15 @@ pub fn generate_crud_routes(model: &ModelDef, config: &CrudConfig) -> TokenStrea
         match op {
             CrudOp::List => {
                 let fn_name = format_ident!("__crud_{}_list", model_name_lower);
-                let resps_name = format_ident!("__CRUD_RESPS_{}_LIST", model_name_lower.to_uppercase());
+                let resps_name =
+                    format_ident!("__CRUD_RESPS_{}_LIST", model_name_lower.to_uppercase());
                 let desc = format!("List all {}", model.table_name);
-                let register_fn = if !assigned_base { assigned_base = true; &base_register_fn } else { &empty_register_fn };
+                let register_fn = if !assigned_base {
+                    assigned_base = true;
+                    &base_register_fn
+                } else {
+                    &empty_register_fn
+                };
 
                 let list_preloads: Vec<TokenStream> = model.relationships.iter().map(|rel| {
                     let rel_str = rel.rust_name.to_string();
@@ -403,9 +413,15 @@ pub fn generate_crud_routes(model: &ModelDef, config: &CrudConfig) -> TokenStrea
 
             CrudOp::Create => {
                 let fn_name = format_ident!("__crud_{}_create", model_name_lower);
-                let resps_name = format_ident!("__CRUD_RESPS_{}_CREATE", model_name_lower.to_uppercase());
+                let resps_name =
+                    format_ident!("__CRUD_RESPS_{}_CREATE", model_name_lower.to_uppercase());
                 let desc = format!("Create a {}", model.name);
-                let register_fn = if !assigned_base { assigned_base = true; &base_register_fn } else { &empty_register_fn };
+                let register_fn = if !assigned_base {
+                    assigned_base = true;
+                    &base_register_fn
+                } else {
+                    &empty_register_fn
+                };
 
                 generated.push(quote! {
                     #[allow(non_snake_case)]
@@ -454,9 +470,15 @@ pub fn generate_crud_routes(model: &ModelDef, config: &CrudConfig) -> TokenStrea
 
             CrudOp::Get => {
                 let fn_name = format_ident!("__crud_{}_get", model_name_lower);
-                let resps_name = format_ident!("__CRUD_RESPS_{}_GET", model_name_lower.to_uppercase());
+                let resps_name =
+                    format_ident!("__CRUD_RESPS_{}_GET", model_name_lower.to_uppercase());
                 let desc = format!("Get {} by ID", model.name);
-                let register_fn = if !assigned_item { assigned_item = true; &item_register_fn } else { &empty_register_fn };
+                let register_fn = if !assigned_item {
+                    assigned_item = true;
+                    &item_register_fn
+                } else {
+                    &empty_register_fn
+                };
 
                 let item_preloads: Vec<TokenStream> = model.relationships.iter().map(|rel| {
                     let rel_str = rel.rust_name.to_string();
@@ -533,12 +555,20 @@ pub fn generate_crud_routes(model: &ModelDef, config: &CrudConfig) -> TokenStrea
 
             CrudOp::Update => {
                 let fn_name = format_ident!("__crud_{}_update", model_name_lower);
-                let resps_name = format_ident!("__CRUD_RESPS_{}_UPDATE", model_name_lower.to_uppercase());
+                let resps_name =
+                    format_ident!("__CRUD_RESPS_{}_UPDATE", model_name_lower.to_uppercase());
                 let desc = format!("Update {} by ID", model.name);
-                let register_fn = if !assigned_item { assigned_item = true; &item_register_fn } else { &empty_register_fn };
+                let register_fn = if !assigned_item {
+                    assigned_item = true;
+                    &item_register_fn
+                } else {
+                    &empty_register_fn
+                };
 
                 // Generate set_* calls for each non-PK field
-                let update_fields: Vec<TokenStream> = model.db_columns.iter()
+                let update_fields: Vec<TokenStream> = model
+                    .db_columns
+                    .iter()
                     .filter(|f| !f.is_primary() && !f.is_auto_increment())
                     .map(|field| {
                         let col_name = &field.column_name;
@@ -619,9 +649,15 @@ pub fn generate_crud_routes(model: &ModelDef, config: &CrudConfig) -> TokenStrea
 
             CrudOp::Delete => {
                 let fn_name = format_ident!("__crud_{}_delete", model_name_lower);
-                let resps_name = format_ident!("__CRUD_RESPS_{}_DELETE", model_name_lower.to_uppercase());
+                let resps_name =
+                    format_ident!("__CRUD_RESPS_{}_DELETE", model_name_lower.to_uppercase());
                 let desc = format!("Delete {} by ID", model.name);
-                let register_fn = if !assigned_item { assigned_item = true; &item_register_fn } else { &empty_register_fn };
+                let register_fn = if !assigned_item {
+                    assigned_item = true;
+                    &item_register_fn
+                } else {
+                    &empty_register_fn
+                };
 
                 generated.push(quote! {
                     #[allow(non_snake_case)]

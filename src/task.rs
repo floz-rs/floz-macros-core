@@ -6,9 +6,7 @@
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{
-    parse::Parse, parse::ParseStream, Ident, LitStr, LitInt, Token, ItemFn, Result,
-};
+use syn::{parse::Parse, parse::ParseStream, Ident, ItemFn, LitInt, LitStr, Result, Token};
 
 /// Parsed contents of `#[task(...)]`
 #[derive(Debug)]
@@ -64,7 +62,12 @@ impl Parse for TaskAttr {
             }
         }
 
-        Ok(TaskAttr { name, queue, retries, timeout })
+        Ok(TaskAttr {
+            name,
+            queue,
+            retries,
+            timeout,
+        })
     }
 }
 
@@ -82,7 +85,7 @@ pub fn expand_task(attr: TokenStream, item: TokenStream) -> TokenStream {
     let fn_vis = &handler_fn.vis;
     let _fn_sig = &handler_fn.sig;
     let fn_block = &handler_fn.block;
-    
+
     // Extract arg names and types for the dispatch method
     let mut arg_names = Vec::new();
     let mut arg_types = Vec::new();
@@ -130,13 +133,13 @@ pub fn expand_task(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let args_json = ::floz::serde_json::to_value((#(#arg_names,)*))?;
                 let mut msg = ::floz::worker::TaskMessage::new(#task_name, #queue_name, args_json, #max_retries);
                 msg.eta = self.eta;
-                
+
                 // Get the redis broker from context cache
                 // Assume the cache wrapped connection can be used as a broker or we create one.
-                // Wait, AppContext doesn't have `broker`. Hmm. Worker needs to enqueue. 
-                // Let's assume `ctx.enqueue(msg).await` exists? 
+                // Wait, AppContext doesn't have `broker`. Hmm. Worker needs to enqueue.
+                // Let's assume `ctx.enqueue(msg).await` exists?
                 // Let's add `enqueue` to AppContext!
-                
+
                 ctx.enqueue(msg).await
             }
         }
@@ -153,7 +156,7 @@ pub fn expand_task(attr: TokenStream, item: TokenStream) -> TokenStream {
             pub fn delay(&self, delay: ::std::time::Duration) -> #builder_name {
                 #builder_name { eta: ::core::option::Option::None }.delay(delay)
             }
-            
+
             pub fn schedule(&self, time: ::floz::chrono::DateTime<::floz::chrono::Utc>) -> #builder_name {
                 #builder_name { eta: ::core::option::Option::None }.schedule(time)
             }

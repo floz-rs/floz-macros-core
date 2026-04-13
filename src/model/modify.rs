@@ -1,7 +1,7 @@
+use super::col::{extract_col_name, parse_col_attrs};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Fields, ItemStruct};
-use super::col::{extract_col_name, parse_col_attrs};
 
 /// Generate the modified struct: strip `#[col(...)]` attrs, add derives + `_dirty_flags`.
 pub(crate) fn generate_modified_struct(input: &ItemStruct, soft_delete: bool) -> TokenStream {
@@ -32,11 +32,18 @@ pub(crate) fn generate_modified_struct(input: &ItemStruct, soft_delete: bool) ->
             let kept_attrs: Vec<_> = field
                 .attrs
                 .iter()
-                .filter(|a| !a.path().is_ident("col") && !a.path().is_ident("rel") && !a.path().is_ident("m2m"))
+                .filter(|a| {
+                    !a.path().is_ident("col")
+                        && !a.path().is_ident("rel")
+                        && !a.path().is_ident("m2m")
+                })
                 .collect();
 
             // Check if this field is a relationship
-            let is_rel = field.attrs.iter().any(|a| a.path().is_ident("rel") || a.path().is_ident("m2m"));
+            let is_rel = field
+                .attrs
+                .iter()
+                .any(|a| a.path().is_ident("rel") || a.path().is_ident("m2m"));
 
             let rel_skip = if is_rel {
                 quote! {
@@ -78,8 +85,10 @@ pub(crate) fn generate_modified_struct(input: &ItemStruct, soft_delete: bool) ->
         })
         .collect();
 
-    let user_has_deleted_at = clean_fields.iter().any(|ts| ts.to_string().contains("deleted_at"));
-    
+    let user_has_deleted_at = clean_fields
+        .iter()
+        .any(|ts| ts.to_string().contains("deleted_at"));
+
     let injected_deleted_at = if soft_delete && !user_has_deleted_at {
         quote! {
             pub deleted_at: ::core::option::Option<::floz::chrono::DateTime<::floz::chrono::Utc>>,

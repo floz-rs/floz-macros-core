@@ -1,7 +1,7 @@
+use super::utils::path_to_table_ident;
+use crate::ast::{ModelDef, RelDef};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use crate::ast::{ModelDef, RelDef};
-use super::utils::path_to_table_ident;
 
 pub fn generate_hooks(model: &ModelDef) -> TokenStream {
     if model.has_custom_hooks {
@@ -78,7 +78,7 @@ fn generate_fetch_method(model: &ModelDef, rel: &RelDef) -> TokenStream {
         let through_table = format_ident!("{}Table", through);
         let through_model = format_ident!("{}", through);
         let target_table = path_to_table_ident(target);
-        
+
         let parent_fk = format_ident!("{}", derive_fk_name(&model.table_name));
         let target_fk = format_ident!("{}", derive_target_fk_name(target));
 
@@ -90,7 +90,7 @@ fn generate_fetch_method(model: &ModelDef, rel: &RelDef) -> TokenStream {
             ) -> Result<Vec<#target>, ::floz::FlozError> {
                 let through_recs = #through_model::filter(#through_table::#parent_fk.eq(self.#pk_struct_field.clone()), db).await?;
                 if through_recs.is_empty() { return Ok(vec![]); }
-                
+
                 let target_ids: Vec<_> = through_recs.into_iter().map(|rec| rec.#target_fk).collect();
                 #target::filter(#target_table::id.in_list(target_ids), db).await
             }
@@ -129,7 +129,7 @@ fn generate_preload_method(model: &ModelDef, rel: &RelDef) -> TokenStream {
         let through_table = format_ident!("{}Table", through);
         let through_model = format_ident!("{}", through);
         let target_table = path_to_table_ident(target);
-        
+
         let parent_fk = format_ident!("{}", derive_fk_name(&model.table_name));
         let target_fk = format_ident!("{}", derive_target_fk_name(target));
 
@@ -140,18 +140,18 @@ fn generate_preload_method(model: &ModelDef, rel: &RelDef) -> TokenStream {
                 db: &impl ::floz::Executor
             ) -> Result<(), ::floz::FlozError> {
                 if models.is_empty() { return Ok(()); }
-                
+
                 let model_ids: Vec<_> = models.iter().map(|m| m.#pk_struct_field.clone()).collect();
                 let through_recs = #through_model::filter(#through_table::#parent_fk.in_list(model_ids), db).await?;
                 if through_recs.is_empty() { return Ok(()); }
-                
+
                 let mut target_ids: Vec<_> = through_recs.iter().map(|rec| rec.#target_fk.clone()).collect();
                 target_ids.sort();
                 target_ids.dedup();
-                
+
                 let targets = #target::filter(#target_table::id.in_list(target_ids), db).await?;
                 let target_map: ::std::collections::HashMap<_, _> = targets.into_iter().map(|t| (t.id.clone(), t)).collect();
-                
+
                 let mut relation_map = ::std::collections::HashMap::new();
                 for rec in through_recs {
                     if let Some(target) = target_map.get(&rec.#target_fk) {
@@ -160,13 +160,13 @@ fn generate_preload_method(model: &ModelDef, rel: &RelDef) -> TokenStream {
                             .push(target.clone());
                     }
                 }
-                
+
                 for m in models {
                     if let Some(targets) = relation_map.remove(&m.#pk_struct_field) {
                         m.#rel_name = targets;
                     }
                 }
-                
+
                 Ok(())
             }
         };
@@ -184,13 +184,13 @@ fn generate_preload_method(model: &ModelDef, rel: &RelDef) -> TokenStream {
             entities: &mut [Self],
             db: &impl floz::Executor
         ) -> Result<(), floz::FlozError> {
-            if entities.is_empty() { 
-                return Ok(()); 
+            if entities.is_empty() {
+                return Ok(());
             }
-            
+
             // Extract all IDs from the parent slice
             let ids: Vec<_> = entities.iter().map(|e| e.#pk_rust_name.clone()).collect();
-            
+
             // Fetch all related entities in one batch query
             let all_related = #target::filter(#target_table::#fk_col.in_list(ids), db).await?;
 
